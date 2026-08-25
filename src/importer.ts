@@ -356,6 +356,29 @@ function forceDocResolution72(doc: Document): void
     }
 }
 
+function isUserCancelled(e: any): boolean
+{
+    if (!e) return false;
+    if (e.number === 8007 || e.number === -128) return true;
+    let msg = String(e.message || e).toLowerCase();
+    return msg.indexOf("cancel") !== -1;
+}
+
+// 靜默開檔：關掉色彩描述檔不符／缺少描述檔等詢問框
+function openSilent(fileObj: File): Document
+{
+    try {
+        let s2t = (s: string) => app.stringIDToTypeID(s);
+        let desc = new ActionDescriptor();
+        desc.putPath(s2t("null"), fileObj);
+        app.executeAction(s2t("open"), desc, DialogModes.NO);
+        return app.activeDocument;
+    } catch (e) {
+        if (isUserCancelled(e)) throw e;
+        return app.open(fileObj);
+    }
+}
+
 function openImageWorkspace(img_filename: string): ImageWorkspace | null
 {
     assert(opts !== null);
@@ -364,7 +387,7 @@ function openImageWorkspace(img_filename: string): ImageWorkspace | null
     let bgDoc: Document;
     try {
         let bgFile = new File(opts.source + dirSeparator + img_filename);
-        bgDoc = app.open(bgFile);
+        bgDoc = openSilent(bgFile);
     } catch {
         return null; //note: do not exit if image not exist
     }
@@ -437,7 +460,7 @@ function openImageWorkspace(img_filename: string): ImageWorkspace | null
             try {
                 let overlayManualFile = findOverlayManualFile(opts.overlayManualSource, img_filename);
                 if (overlayManualFile !== null) {
-                    let overlayManualDoc = app.open(overlayManualFile);
+                    let overlayManualDoc = openSilent(overlayManualFile);
                     forceDocResolution72(overlayManualDoc);
                     app.activeDocument = overlayManualDoc;
                     overlayManualDoc.selection.selectAll();
@@ -488,7 +511,7 @@ function openImageWorkspace(img_filename: string): ImageWorkspace | null
             try {
                 let overlayManualFile = findOverlayManualFile(opts.overlayManualSource, img_filename);
                 if (overlayManualFile !== null) {
-                    let overlayManualDoc = app.open(overlayManualFile);
+                    let overlayManualDoc = openSilent(overlayManualFile);
                     forceDocResolution72(overlayManualDoc);
                     app.activeDocument = overlayManualDoc;
                     overlayManualDoc.selection.selectAll();
@@ -615,59 +638,66 @@ export function importFiles(custom_opts: CustomOptions): boolean
     log(Stdlib.listProps(opts));
     log("Properties end   ------------------");
 
-    // 解析 BT 文本文件
-    let filePath = opts.lpTextFilePath;
-    let lpFile = btTextParser(filePath);
-    if (lpFile == null) {
-        log_err("error: " + I18n.ERROR_PARSER_BTTEXT_FAIL);
-        return false;
-    }
-    log("parse bt format text done...");
+    let origDialogs = app.displayDialogs;
+    try {
+        app.displayDialogs = DialogModes.NO;
 
-    // 替换文本解析
-    if (opts.textReplace) {
-        let tmp = textReplaceReader(opts.textReplace);
-        if (tmp === null) {
-            log_err("error: " + I18n.ERROR_TEXT_REPLACE_EXPRESSION);
+        // 解析 BT 文本文件
+        let filePath = opts.lpTextFilePath;
+        let lpFile = btTextParser(filePath);
+        if (lpFile == null) {
+            log_err("error: " + I18n.ERROR_PARSER_BTTEXT_FAIL);
             return false;
         }
-        textReplace = tmp;
+        log("parse bt format text done...");
+
+        // 替换文本解析
+        if (opts.textReplace) {
+            let tmp = textReplaceReader(opts.textReplace);
+            if (tmp === null) {
+                log_err("error: " + I18n.ERROR_TEXT_REPLACE_EXPRESSION);
+                return false;
+            }
+            textReplace = tmp;
+        }
+        log("parse textreplace done...");
+
+        // 遍历所选图片
+        for (let i = 0; i < opts.imageSelected.length; i++) {
+            let orgin_name :string = opts.imageSelected[i].file; // 翻译文件中的图片文件名
+            let matched_name: string = opts.imageSelected[i].matched_file;
+            let name_pair = LabelPlus.str_filename_pair(orgin_name, matched_name);
+
+            log(name_pair + 'in processing...' );
+            if (opts.ignoreNoLabelImg && lpFile?.images[orgin_name].length == 0) { // ignore img with no label
+                log('no label, ignored...');
+                continue;
+            }
+            let ws = openImageWorkspace(matched_name);
+            if (ws == null) {
+                log_err(name_pair + ": " + I18n.ERROR_FILE_OPEN_FAIL);
+                continue;
+            }
+
+            let img_info: ImageInfo = {
+                ws: ws,
+                name: matched_name,
+                name_pair: name_pair,
+                labels: lpFile.images[orgin_name],
+            };
+            if (!importImage(img_info)) {
+                log_err(name_pair + ": import label failed");
+            }
+            if (!closeImage(img_info, opts.outputType)) {
+                log_err(name_pair + ": " + I18n.ERROR_FILE_SAVE_FAIL);
+            }
+            log(name_pair + ": done");
+        }
+        log("All Done!");
+        return true;
+    } finally {
+        app.displayDialogs = origDialogs;
     }
-    log("parse textreplace done...");
-
-    // 遍历所选图片
-    for (let i = 0; i < opts.imageSelected.length; i++) {
-        let orgin_name :string = opts.imageSelected[i].file; // 翻译文件中的图片文件名
-        let matched_name: string = opts.imageSelected[i].matched_file;
-        let name_pair = LabelPlus.str_filename_pair(orgin_name, matched_name);
-
-        log(name_pair + 'in processing...' );
-        if (opts.ignoreNoLabelImg && lpFile?.images[orgin_name].length == 0) { // ignore img with no label
-            log('no label, ignored...');
-            continue;
-        }
-        let ws = openImageWorkspace(matched_name);
-        if (ws == null) {
-            log_err(name_pair + ": " + I18n.ERROR_FILE_OPEN_FAIL);
-            continue;
-        }
-
-        let img_info: ImageInfo = {
-            ws: ws,
-            name: matched_name,
-            name_pair: name_pair,
-            labels: lpFile.images[orgin_name],
-        };
-        if (!importImage(img_info)) {
-            log_err(name_pair + ": import label failed");
-        }
-        if (!closeImage(img_info, opts.outputType)) {
-            log_err(name_pair + ": " + I18n.ERROR_FILE_SAVE_FAIL);
-        }
-        log(name_pair + ": done");
-    }
-    log("All Done!");
-    return true;
 };
 
 
