@@ -7,6 +7,16 @@
 ### Removed
 
 
+## [0.1.0] - 2026-08-25
+BT 專用腳本的第一個獨立版本，不再沿用 LabelPlus 的 1.7.4。
+### Added
+- 讀取 BalloonsTranslator 工程 JSON，匯入 Photoshop 文字圖層
+- 支援氣泡位置、譯文、分組、旋轉、直橫排、字體、字級、粗斜體、顏色、描邊
+### Changed
+- 介面僅保留 BT JSON 導入；預設啟用來源文字樣式與段落文字
+
+以下為上游 LabelPlus PS-Script 的歷史版本紀錄。
+
 ## [1.7.4] - 2024-09-21
 ### Changed
 - 兼容翻译文本编码格式UTF-8 with BOM或UTF-8，增强与其他兼容的工具导出的文本的兼容性，原先似乎与操作系统相关，win下为UTF-8 with BOM

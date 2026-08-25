@@ -1,96 +1,52 @@
-# LabelPlus PS-Script
+# BT-PS-Script
 
-![img](pic.jpg)
+本專案源自 [LabelPlus/PS-Script](https://github.com/LabelPlus/PS-Script)。
 
-## 🆕 新增功能：涂白文件夾 (overlay-manual)
-
-### 功能特點
-- **智能圖層管理**：新增 `overlay-manual` 圖層，用於手動編輯和背景處理
-- **涂白文件夾支援**：可指定專門存放預處理圖片的文件夾
-- **智能文件匹配**：支援不同後綴名匹配（如 `page01.png` 可匹配 `page01.jpg`）
-- **自動回退機制**：找不到涂白圖片時自動使用背景圖層內容
-
-### 使用方式
-1. 在UI的"輸入"面板中設定**涂白文件夾**路徑（可選）
-2. 在涂白文件夾中放置與原圖同名的預處理圖片
-3. 執行導入，系統會自動使用涂白圖片作為 `overlay-manual` 圖層
-
-### 適用場景
-- 複雜背景需要手動預處理
-- 自動涂白效果不理想時的補充方案
-- 批量處理已預先涂白的圖片
-- 對背景處理品質有特殊要求的專業翻譯
-
-### 圖層結構
-
-```mermaid
-graph TD
-    A["PSD檔案結構"] --> B["文本圖層"]
-    A --> C["功能圖層"]
-    
-    B --> B1["框內 (圖層分組)"]
-    B --> B2["框外 (圖層分組)"]
-    B --> B3["旁白 (圖層分組)"]
-    B --> B4["_Label (序號分組) [可選]"]
-    
-    B1 --> B1a["翻譯文本1"]
-    B1 --> B1b["翻譯文本2"]
-    B2 --> B2a["標題文本"]
-    B4 --> B4a["1, 2, 3... (序號標記)"]
-    
-    C --> C1["dialog-overlay (自動涂白圖層) [可選]"]
-    C --> C2["overlay-manual (手動編輯圖層) [新增]"]
-    C --> C3["bg (背景圖層)"]
-    
-    C2 --> C2a["來源1: 涂白文件夾中的圖片 [優先]"]
-    C2 --> C2b["來源2: 複製背景圖層 [回退]"]
-    
-    style C2 fill:#e8f5e8,stroke:#2e7d32,stroke-width:3px
-    style C2a fill:#fff3e0,stroke:#f57c00,stroke-width:2px
-    style C2b fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
-```
+原專案是 LabelPlus 工具包裡的 Photoshop 文本導入腳本：讀入翻譯文本，逐條寫入 PSD。本倉庫在此基礎上改為讀取 [BalloonsTranslator](https://github.com/dmMaze/BallonsTranslator) 工程 JSON，把氣泡裡的翻譯、位置與樣式匯入 Photoshop。
 
 ---
 
-## 概述
+## 使用方法
 
-LabelPlus是一个用于图片翻译的工具包，本工程是其中的Photoshop文本导入工具，它读入翻译文本，并将文本逐条添加到PSD档中。
+1. 選擇 BT 的項目 JSON（例如 `imgtrans_*.json`）。
 
-脚本用到的开源项目：
-* [xtools(BSD license)](http://ps-scripts.sourceforge.net/xtools.html)中部分工具函数及UI框架
-* [JSON Action Manager](http://www.tonton-pixel.com/json-photoshop-scripting/json-action-manager/index.html)中的JSON解析库
+![選擇 BT 的項目 JSON](doc/step1-select-bt-json.png)
 
-功能一览：
+2. 確認圖源／輸出等路徑後，依需要調整選項，點擊 **執行**。等待就會生成對應的PSD
 
-* 解析LabelPlus文本 创建对应文本图层
-* 允许选择性导入部分文件、分组
-* 允许更换图源：可使用不同尺寸、可根据顺序自动匹配文件名（图片顺序、数量必须相同）、可替换图源后缀名
-* **🆕 涂白文件夹支援**：可指定涂白文件夹，自動載入預處理圖片到overlay-manual圖層
-* **🆕 智能文件匹配**：支援不同後綴名的文件匹配（如.png匹配.jpg）
-* 自定义自动替换文本规则（如自动将`！？`替换为`!?`）
-* 格式设置：字体、字号、行距、文本方向
-* 可设置自定义动作：每导入一段文字后，执行动作；打开、关闭文档时执行动作
-* 根据标号位置自动涂白（实验功能）
+![做特定修改後，點擊執行](doc/step2-run.png)
 
-## 开发方法
+---
 
-### requirement
-* typescript
-* python
+## 目前支援的屬性
 
-```
-$ sudo apt install python nodejs
-$ sudo npm install -g typescript yarn
-$ npm config set registry https://registry.npmmirror.com
-$ yarn config set registry https://registry.npmmirror.com
-```
+腳本讀的是 BalloonsTranslator 工程 JSON（需有 `pages` 與 `image_info`）。文字優先用氣泡的 `translation`；若為空則改用原文 `text`。
 
-### build
+勾選 **來源文字樣式** 時，會把下列欄位寫進 Photoshop 文字圖層：
 
-```
-$ cd PS-Script
-$ yarn install
-$ ./build.sh
-```
+| 來源 | 說明 |
+|------|------|
+| `xyxy` | 氣泡框。用於定位；勾選段落文字時依此框自動換行 |
+| `translation` / `text` | 寫入圖層的內容 |
+| `label` | 圖層分組名稱；沒有則歸入 `default` |
+| `angle` | 旋轉角度 |
+| `src_is_vertical` | 直／橫排（`fontformat.vertical` 不存在時的後備） |
+| `fontformat.font_family` | 字體（Qt family 會盡量轉成 Photoshop PostScript 名稱） |
+| `fontformat.font_size` | 字級；沒有則用 `_detected_font_size` |
+| `fontformat.vertical` | 直排 / 橫排 |
+| `fontformat.bold` / `italic` | 粗體、斜體 |
+| `fontformat.frgb` | 文字顏色 |
+| `fontformat.stroke_width` / `srgb` | 描邊寬度與顏色 |
+| `image_info.width` / `height` | 將框座標換成相對位置時使用 |
 
-建置完成後，會在 `build/` 目錄生成 `LabelPlus_Ps_Script_BT.jsx` 腳本文件，可直接在 Photoshop 中使用。
+目前**尚未**套用：`alignment`、`font_weight`、`line_spacing`、`letter_spacing`。
+
+---
+
+## 下載腳本
+
+請到本倉庫 [Releases](https://github.com/FoxyBubbles/BT-PS-Script/releases) 下載 `LabelPlus_Ps_Script_BT.jsx`，不必自行編譯。
+
+在 Photoshop 中：**檔案 → 指令碼 → 瀏覽…**，選取該檔即可。若要出現在指令碼選單裡，把檔案放到 Photoshop 的 `Presets/Scripts` 資料夾後重開軟體。
+
+維護者發版請見 [docs/RELEASE.md](docs/RELEASE.md)。
