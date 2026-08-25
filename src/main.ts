@@ -31,18 +31,16 @@ class LabelPlusInput extends GenericUI {
     private stylePnl: any;
     private automationPnl: any;
     private HelpPnl: any;
+    private btTextFileTextBox: any;
 
     constructor() {
         super();
         this.saveIni = false;
         this.hasBorder = false;
         this.settingsPanel = false;
-        this.winRect = { x: 200, y: 200, w: 875, h: 770 };
+        this.winRect = { x: 200, y: 200, w: 875, h: 800 };
         this.center = true;
-        this.title = I18n.APP_NAME + " For BallonsTranslator " + VERSION;
         this.notesSize = 0;
-        this.processTxt = I18n.BUTTON_RUN;
-        this.cancelTxt = I18n.BUTTON_CANCEL;
 
         try {
             this.opts = readIni(DEFAULT_INI_PATH); // try to load auto saved ini
@@ -51,6 +49,10 @@ class LabelPlusInput extends GenericUI {
             this.opts = new CustomOptions();
             log("read option from " + DEFAULT_INI_PATH + "failed");
         }
+        if (!this.opts.language) {
+            this.opts.language = "auto";
+        }
+        this.applyUiLanguage(this.opts.language);
     }
 
     private getMatchedFileList = () => {
@@ -88,6 +90,65 @@ class LabelPlusInput extends GenericUI {
         return arr;
     }
 
+    private applyUiLanguage = (pref: string) => {
+        I18n.applyLanguage(pref);
+        this.title = I18n.APP_NAME + " For BallonsTranslator " + VERSION;
+        this.processTxt = I18n.BUTTON_RUN;
+        this.cancelTxt = I18n.BUTTON_CANCEL;
+    }
+
+    private switchLanguage = (index: number) => {
+        let code = I18n.LANGUAGE_CODES[index];
+        if (!code) {
+            return;
+        }
+        if ((this.opts.language || "auto") === code) {
+            return;
+        }
+
+        let snap = this.geCustomOptions(true);
+        if (snap) {
+            snap.language = code;
+            this.opts = snap;
+        } else {
+            this.opts.language = code;
+        }
+
+        this.applyUiLanguage(code);
+        try {
+            writeIni(DEFAULT_INI_PATH, this.opts);
+        } catch (e) {
+            log("write option after language switch failed");
+        }
+
+        if (this.win) {
+            this.win.close(4);
+        }
+    }
+
+    private restoreLoadedTextFile = () => {
+        if (!this.opts.lpTextFilePath) {
+            return;
+        }
+        let f = new File(this.opts.lpTextFilePath);
+        if (!f || !f.exists) {
+            return;
+        }
+        if (this.btTextFileTextBox) {
+            this.btTextFileTextBox.text = f.fsName;
+        }
+        this.loadTextFile(f, this.inputPnl, this.outputPnl, this.automationPnl);
+        if (this.opts.source) {
+            this.inputPnl.sourceTextBox.text = this.opts.source;
+        }
+        if (this.opts.overlayManualSource !== undefined) {
+            this.inputPnl.overlayManualSourceTextBox.text = this.opts.overlayManualSource;
+        }
+        if (this.opts.target) {
+            this.outputPnl.targetTextBox.text = this.opts.target;
+        }
+    }
+
     private optPickers: CustomOptionsPicker[] = [];
     private addToPickerList = (picker?: CustomOptionsPicker) => {
         if (picker)
@@ -102,6 +163,7 @@ class LabelPlusInput extends GenericUI {
         xx += 120;
         pnl.btTextFileTextBox = pnl.add('edittext', [xx, yy, xx + 300, yy + 20], '');
         pnl.btTextFileTextBox.enabled = false;
+        this.btTextFileTextBox = pnl.btTextFileTextBox;
         xx += 305;
         pnl.btTextFileBrowseButton = pnl.add('button', [xx, yy - 2, xx + 30, yy + 20], '...');
         xx += 30;
@@ -121,8 +183,8 @@ class LabelPlusInput extends GenericUI {
         };
 
         let getOption = (opts: CustomOptions, toFile: boolean): CustomOptions | null => {
+            let btPath = pnl.btTextFileTextBox.text;
             if (!toFile) {
-                let btPath = pnl.btTextFileTextBox.text;
                 if (btPath === "") {
                     alert(I18n.ERROR_NOT_FOUND_BTTEXT);
                     return null;
@@ -137,6 +199,8 @@ class LabelPlusInput extends GenericUI {
                     alert(I18n.ERROR_PARSER_BTTEXT_FAIL);
                     return null;
                 }
+            }
+            if (btPath !== "") {
                 opts.lpTextFilePath = btPath;
             }
 
@@ -211,9 +275,21 @@ class LabelPlusInput extends GenericUI {
         pnl.savePrompt = "Save Setting";
         pnl.defaultFile = DEFAULT_INI_PATH;
 
+        let y = 12;
+        pnl.languageLabel = pnl.add('statictext', [10, y, 70, y + 20], I18n.LABEL_LANGUAGE);
+        pnl.languageList = pnl.add('dropdownlist', [75, y - 2, 335, y + 22], I18n.LIST_LANGUAGE_ITEMS);
+        let langIdx = I18n.LANGUAGE_CODES.indexOf(this.opts.language || "auto");
+        pnl.languageList.selection = (langIdx >= 0) ? langIdx : 0;
+        pnl.languageList.onChange = () => {
+            if (!pnl.languageList.selection) {
+                return;
+            }
+            this.switchLanguage(pnl.languageList.selection.index);
+        };
+
         let w = pnl.bounds[2] - pnl.bounds[0];
         let offsets = [w * 0.2, w * 0.5, w * 0.8];
-        let y = 15;
+        y = 42;
         let bw = 90;
 
         let x = offsets[0] - (bw / 2);
@@ -233,6 +309,10 @@ class LabelPlusInput extends GenericUI {
             let f = Stdlib.selectFileOpen(prmpt, sel, def);
             if (f) {
                 this.opts = readIni(f);
+                if (!this.opts.language) {
+                    this.opts.language = "auto";
+                }
+                this.applyUiLanguage(this.opts.language);
                 win.close(4);
             }
         };
@@ -258,10 +338,16 @@ class LabelPlusInput extends GenericUI {
         pnl.reset.onClick = () => {
             this.opts = new CustomOptions();
             this.lpFile = null;
+            this.applyUiLanguage(this.opts.language);
             win.close(4);
         };
 
-        return { };
+        let getOption = (opts: CustomOptions, toFile?: boolean): CustomOptions | null => {
+            opts.language = this.opts.language || "auto";
+            return opts;
+        };
+
+        return { getOption: getOption };
     };
 
     private uiInputPanel = (pnl: any): PanelDesc => {
@@ -430,6 +516,9 @@ class LabelPlusInput extends GenericUI {
                 for (let i = 0; i < pnl.chooseGroupListBox.selection.length; i++) {
                     opts.groupSelected[i] = pnl.chooseGroupListBox.selection[i].text;
                 }
+            } else {
+                opts.source = pnl.sourceTextBox.text;
+                opts.overlayManualSource = pnl.overlayManualSourceTextBox.text;
             }
             return opts;
         }
@@ -569,6 +658,8 @@ class LabelPlusInput extends GenericUI {
                     }
                 }
                 opts.target = f.fsName;
+            } else {
+                opts.target = pnl.targetTextBox.text;
             }
             opts.outputType = <number>pnl.outputTypeList.selection.index;
             opts.outputLabelIndex = pnl.outputLabelIndexCheckBox.value;
@@ -904,10 +995,10 @@ class LabelPlusInput extends GenericUI {
         yOfs = yy;
 
         // setting save/load
-        this.settingsPnl = pnl.add('panel', [xx, yy, xx + 355, yy + 50]);
+        this.settingsPnl = pnl.add('panel', [xx, yy, xx + 355, yy + 78]);
         ret = this.uiSettingsPanel(this.settingsPnl);
         this.addToPickerList(ret.getOption);
-        yy += 60;
+        yy += 88;
 
         // input options
         this.inputPnl = pnl.add('panel', [xx, yy, xx + 355, yy + 420]);
@@ -944,11 +1035,13 @@ class LabelPlusInput extends GenericUI {
         ret = this.uiHelpPanel(this.HelpPnl);
 
         this.allPanelEnable(this.lpFile != null);
+        this.restoreLoadedTextFile();
         return pnl;
     }
 
     private geCustomOptions = (toFile: boolean): CustomOptions | null => {
         let new_opts = new CustomOptions();
+        new_opts.language = this.opts.language || "auto";
         for (let i = 0; i < this.optPickers.length; i++) {
             let ret = this.optPickers[i](new_opts, toFile);
             if (ret == null) {

@@ -1,3 +1,5 @@
+**語言 / Language：** 中文 | [English](README.en.md)
+
 # BT-PS-Script
 
 本專案源自 [LabelPlus/PS-Script](https://github.com/LabelPlus/PS-Script)。

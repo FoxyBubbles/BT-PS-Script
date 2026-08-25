@@ -22,6 +22,7 @@ export class CustomOptions {
     groupSelected: string[] = [];  // selected label group
 
     // ------------------------------------ saved options
+    language: string = "auto"; // "auto" | "zh" | "en"；auto = 跟隨 Photoshop 介面語言
     outputType: OptionOutputType = OptionOutputType.PSD; // output image file type
     ignoreNoLabelImg: boolean = false; // ignore images with no label
     noLayerGroup: boolean = false; // do not create group in document for text layers
