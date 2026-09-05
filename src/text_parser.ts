@@ -21,6 +21,8 @@ export interface LpLabel {
     boxY?: number;
     boxW?: number;
     boxH?: number;
+    // true：x/y/box* 為像素絕對座標（image_info 缺寬高時）；匯入時再依文件尺寸正規化
+    pixelCoords?: boolean;
 }
 
 export type LpLabelDict = {
@@ -31,6 +33,7 @@ export interface LpFile {
     path: string;
 	groups: string[];
 	images: LpLabelDict;
+    directory?: string; // BT JSON 的 directory（原工程資料夾，可能與 JSON 所在路徑不同）
 };
 
 // Meo格式的接口定義
@@ -162,8 +165,8 @@ export function meoTextParser(path: string): LpFile | null
 // BalloonsTranslator (BT) JSON 介面
 export interface BtImageInfo {
     finish_code?: number;
-    width: number;
-    height: number;
+    width?: number;
+    height?: number;
     translation_target?: string;
 }
 
@@ -223,6 +226,20 @@ function btFontStyleFromFlags(bold?: boolean, italic?: boolean): string | undefi
     return undefined;
 }
 
+function parseJsonObject(json: string): any
+{
+    if (!json) {
+        throw new Error("empty json");
+    }
+    if (json.charAt(0) === "\uFEFF") {
+        json = json.substring(1);
+    }
+    if (typeof jamJSON !== "undefined" && jamJSON.parse) {
+        return jamJSON.parse(json);
+    }
+    return (new Function("return " + json))();
+}
+
 // BalloonsTranslator JSON 解析函數（獨立 parser，輸出統一為 LpFile）
 export function btTextParser(path: string): LpFile | null
 {
@@ -239,11 +256,14 @@ export function btTextParser(path: string): LpFile | null
         var json = f.read();
         f.close();
 
-        var btData: BtFile = (new Function('return ' + json))();
+        var btData: BtFile = parseJsonObject(json);
 
-        if (!btData.pages || !btData.image_info) {
-            log_err("Invalid BT format: missing pages or image_info");
+        if (!btData.pages) {
+            log_err("Invalid BT format: missing pages");
             return null;
+        }
+        if (!btData.image_info) {
+            btData.image_info = {};
         }
 
         log("BT format detected:");
@@ -266,12 +286,14 @@ export function btTextParser(path: string): LpFile | null
             }
 
             let imgInfo = btData.image_info[filename];
-            if (!imgInfo || !imgInfo.width || !imgInfo.height) {
-                log_err("BtTextReader: missing image_info for " + filename);
-                continue;
+            let imgW = (imgInfo && imgInfo.width) ? imgInfo.width : 0;
+            let imgH = (imgInfo && imgInfo.height) ? imgInfo.height : 0;
+            // 部分 BT 工程的 image_info 只有 finish_code，沒有寬高。
+            // 不可整頁跳過，否則圖片列表會是空的；改存像素座標，匯入時再正規化。
+            let usePixelCoords = !(imgW > 0 && imgH > 0);
+            if (usePixelCoords) {
+                log("BtTextReader: image_info missing width/height for " + filename + ", keep pixel coords");
             }
-            let imgW = imgInfo.width;
-            let imgH = imgInfo.height;
 
             let lpLabels: LpLabel[] = [];
             for (let i = 0; i < balloons.length; i++) {
@@ -292,14 +314,21 @@ export function btTextParser(path: string): LpFile | null
                 let processedText = rawText.replace(/\n/g, "\r");
 
                 let x1 = b.xyxy[0], y1 = b.xyxy[1], x2 = b.xyxy[2], y2 = b.xyxy[3];
-                // 轉成與 Meo/LabelPlus 一致的相對座標（框中心）
-                let nx = ((x1 + x2) / 2.0) / imgW;
-                let ny = ((y1 + y2) / 2.0) / imgH;
-                // 文字框：左上角 + 寬高（相對座標，供段落文字使用）
-                let boxX = x1 / imgW;
-                let boxY = y1 / imgH;
-                let boxW = (x2 - x1) / imgW;
-                let boxH = (y2 - y1) / imgH;
+                // 有寬高時轉成相對座標（框中心）；否則保留像素，匯入時再除以文件尺寸
+                let nx = (x1 + x2) / 2.0;
+                let ny = (y1 + y2) / 2.0;
+                let boxX = x1;
+                let boxY = y1;
+                let boxW = x2 - x1;
+                let boxH = y2 - y1;
+                if (!usePixelCoords) {
+                    nx = nx / imgW;
+                    ny = ny / imgH;
+                    boxX = boxX / imgW;
+                    boxY = boxY / imgH;
+                    boxW = boxW / imgW;
+                    boxH = boxH / imgH;
+                }
 
                 let groupName = "default";
                 if (b.label != null && String(b.label) !== "") {
@@ -365,7 +394,8 @@ export function btTextParser(path: string): LpFile | null
                     boxX: boxX,
                     boxY: boxY,
                     boxW: boxW,
-                    boxH: boxH
+                    boxH: boxH,
+                    pixelCoords: usePixelCoords ? true : undefined
                 };
                 lpLabels.push(lpLabel);
                 totalLabels++;
@@ -386,7 +416,8 @@ export function btTextParser(path: string): LpFile | null
         return {
             path: path,
             groups: groups,
-            images: images
+            images: images,
+            directory: btData.directory || ""
         };
     } catch (e) {
         log_err("BtTextReader: parse error - " + e.toString());

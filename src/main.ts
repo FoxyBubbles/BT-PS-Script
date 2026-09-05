@@ -239,6 +239,20 @@ class LabelPlusInput extends GenericUI {
             return;
         }
 
+        // JSON 旁沒有圖時，改用 BT directory（原工程路徑，Windows 上 JSON 常被單獨複製出來）
+        if (lpFile.directory && FolderIsExists(lpFile.directory)) {
+            if (getImageFilesListOfPath(inputPnl.sourceTextBox.text).length === 0) {
+                if (getImageFilesListOfPath(lpFile.directory).length > 0) {
+                    log("detect images source from json directory: " + lpFile.directory);
+                    inputPnl.sourceTextBox.text = lpFile.directory;
+                    let inpaintedFromDir = lpFile.directory + dirSeparator + "inpainted";
+                    if (FolderIsExists(inpaintedFromDir)) {
+                        inputPnl.overlayManualSourceTextBox.text = inpaintedFromDir;
+                    }
+                }
+            }
+        }
+
         this.lpFile = lpFile;
         this.allPanelEnable(true);
 

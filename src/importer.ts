@@ -220,9 +220,53 @@ function importLabel(img: ImageInfo, label: LabelInfo): boolean
     return true;
 }
 
+function convertPixelLabelCoords(img: ImageInfo): void
+{
+    let needConvert = false;
+    for (let i = 0; i < img.labels.length; i++) {
+        if (img.labels[i].pixelCoords) {
+            needConvert = true;
+            break;
+        }
+    }
+    if (!needConvert) {
+        return;
+    }
+
+    let docW = img.ws.doc.width.as("px");
+    let docH = img.ws.doc.height.as("px");
+    if (!docW || !docH) {
+        log_err(img.name_pair + ": cannot convert pixel coordinates, invalid document size");
+        return;
+    }
+    log("convert pixel coordinates using document size " + docW + "x" + docH);
+    for (let i = 0; i < img.labels.length; i++) {
+        let l = img.labels[i];
+        if (!l.pixelCoords) {
+            continue;
+        }
+        l.x = l.x / docW;
+        l.y = l.y / docH;
+        if (typeof l.boxX === "number") {
+            l.boxX = l.boxX / docW;
+        }
+        if (typeof l.boxY === "number") {
+            l.boxY = l.boxY / docH;
+        }
+        if (typeof l.boxW === "number") {
+            l.boxW = l.boxW / docW;
+        }
+        if (typeof l.boxH === "number") {
+            l.boxH = l.boxH / docH;
+        }
+        l.pixelCoords = false;
+    }
+}
+
 function importImage(img: ImageInfo): boolean
 {
     assert(opts !== null);
+    convertPixelLabelCoords(img);
 
     // run action _start
     if (opts.actionGroup) {

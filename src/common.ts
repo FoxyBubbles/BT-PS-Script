@@ -57,14 +57,19 @@ export function getImageFilesListOfPath(path: string): string[] {
 
     for (let i = 0; i < fileList.length; i++) {
         let file = fileList[i];
-        if (file instanceof File) {
-            let tmp = file.toString().split("/");
-            let short_name = tmp[tmp.length - 1];
-            for (let i = 0; i < image_suffix_list.length; i++) {
-                if (StringEndsWith(short_name.toLowerCase(), image_suffix_list[i])) {
-                    fileNameList.push(short_name);
-                    break;
-                }
+        // Windows 上 Folder.getFiles() 回傳的物件不一定通過 instanceof File
+        if (!file || typeof file.getFiles === "function") {
+            continue;
+        }
+        let short_name = file.name;
+        try {
+            short_name = decodeURI(short_name);
+        } catch (e) {
+        }
+        for (let j = 0; j < image_suffix_list.length; j++) {
+            if (StringEndsWith(short_name.toLowerCase(), image_suffix_list[j])) {
+                fileNameList.push(short_name);
+                break;
             }
         }
     }

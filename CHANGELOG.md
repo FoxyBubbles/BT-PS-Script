@@ -6,6 +6,12 @@
 ### Fixed
 ### Removed
 
+## [0.2.1] - 2026-09-06
+### Fixed
+- BT JSON 的 `image_info` 缺少寬高時不再跳過整頁，圖片列表可正常列出；匯入時依實際畫布換算座標
+- Windows 上列圖源檔案不再依賴 `instanceof File`，避免清單讀不到圖片
+- JSON 旁邊沒有圖片時，自動改用工程 JSON 內的 `directory` 作為圖源
+
 ## [0.2.0] - 2026-08-25
 ### Added
 - 介面可手動切換中／英文，預設跟隨 Photoshop 語系
