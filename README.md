@@ -10,13 +10,53 @@
 
 ## 使用方法
 
-1. 選擇 BT 的項目 JSON（例如 `imgtrans_*.json`）。
+1. 選擇 BT 的項目 JSON（例如 `imgtrans_*.json`，或下方匯出的 `imgtrans_ps.json`）。
 
 ![選擇 BT 的項目 JSON](doc/step1-select-bt-json.png)
 
 2. 確認圖源／輸出等路徑後，依需要調整選項，點擊 **執行**。等待就會生成對應的PSD
 
 ![做特定修改後，點擊執行](doc/step2-run.png)
+
+---
+
+## 從 BalloonsTranslator 匯出精簡 JSON
+
+完整工程 JSON 很大，含大量本腳本不會讀的欄位；氣泡在 BT 裡的自動折行通常也沒有寫成 `\n`。可用倉庫裡的 `scripts/export_ps_json.py`，在不改原工程檔的前提下，另外匯出一份只含本腳本用得上的 JSON，並把畫面上的視覺換行寫進 `translation`。
+
+**使用場景**
+
+- 只想把譯文、框、字體等匯入 Photoshop 的欄位帶走，不想帶 OCR 原文、遮罩、未使用的樣式等。
+- 需要把 BT 畫面裡看起來的換行變成 `translation` 裡的 `\n`，方便 Photoshop 用點文字還原，而不靠段落文字再折一次。
+- 批次處理多個工程，產出可直接丟給本腳本的 `imgtrans_ps.json`。
+
+**用法**
+
+此腳本要呼叫 BalloonsTranslator 的 Qt 文字引擎來還原折行，因此必須能 import `ballontranslator`（請用 BT 的 Python 環境執行）。指定 BT 根目錄（內含 `ballontranslator` 套件）：
+
+```bash
+python scripts/export_ps_json.py --bt-root /path/to/BallonsTranslator /path/to/project
+```
+
+也可改設環境變數 `BALLONSTRANSLATOR_ROOT`。若把此檔放回 BT 自己的 `scripts/` 下執行，可省略 `--bt-root`。
+
+參數：
+
+- 位置參數：工程資料夾，或 `imgtrans_*.json` 路徑；可一次傳多個工程。
+- `-o` / `--output`：輸出路徑。預設寫到該工程目錄的 `imgtrans_ps.json`，不會覆寫原工程 JSON。多個工程時不可共用同一個 `-o`。
+- `--ldpi`：排版用的邏輯 DPI，通常是 `96` 或 `72`。折行與 BT 畫面不一致時可試這個。
+
+範例：
+
+```bash
+# 匯出到工程目錄的 imgtrans_ps.json
+python scripts/export_ps_json.py --bt-root /path/to/BallonsTranslator /path/to/project
+
+# 指定輸出檔
+python scripts/export_ps_json.py --bt-root /path/to/BallonsTranslator /path/to/imgtrans_.json -o /tmp/imgtrans_ps.json
+```
+
+匯入這份 JSON 時，建議取消勾選「段落文字」，改用點文字，避免已寫入的 `\n` 再依文字框折一次。
 
 ---
 
