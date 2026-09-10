@@ -22,13 +22,15 @@
 
 ## 從 BalloonsTranslator 匯出精簡 JSON
 
-完整工程 JSON 很大，含大量本腳本不會讀的欄位；氣泡在 BT 裡的自動折行通常也沒有寫成 `\n`。可用倉庫裡的 `scripts/export_ps_json.py`，在不改原工程檔的前提下，另外匯出一份只含本腳本用得上的 JSON，並把畫面上的視覺換行寫進 `translation`。
+**若匯入時不使用段落文字、改用點文字：BT 裡若沒有手動換行（`\n`），點文字不會自動折行。** BT 畫面裡依文字框看起來的換行只是排版結果，不會寫進原工程 JSON。這時必須先跑 `scripts/export_ps_json.py`，把視覺換行寫進 `translation` 的 `\n`，再拿產出的 `imgtrans_ps.json` 匯入。
+
+此腳本同時會去掉本腳本用不到的欄位，且不改原工程檔。
 
 **使用場景**
 
-- 只想把譯文、框、字體等匯入 Photoshop 的欄位帶走，不想帶 OCR 原文、遮罩、未使用的樣式等。
-- 需要把 BT 畫面裡看起來的換行變成 `translation` 裡的 `\n`，方便 Photoshop 用點文字還原，而不靠段落文字再折一次。
-- 批次處理多個工程，產出可直接丟給本腳本的 `imgtrans_ps.json`。
+- 使用點文字匯入，且 BT 內沒有手動 `\n`（只靠畫面自動折行）——**這時一定要用此腳本**，否則 PSD 裡會變成一整段不換行。
+- 只想帶走譯文、框、字體等本腳本會讀的欄位，不要完整工程 JSON。
+- 批次處理多個工程，產出可直接匯入的 `imgtrans_ps.json`。
 
 **用法**
 
@@ -56,7 +58,7 @@ python scripts/export_ps_json.py --bt-root /path/to/BallonsTranslator /path/to/p
 python scripts/export_ps_json.py --bt-root /path/to/BallonsTranslator /path/to/imgtrans_.json -o /tmp/imgtrans_ps.json
 ```
 
-匯入這份 JSON 時，建議取消勾選「段落文字」，改用點文字，避免已寫入的 `\n` 再依文字框折一次。
+匯入 `imgtrans_ps.json` 時請取消勾選「段落文字」，讓點文字直接使用腳本寫入的 `\n`。若仍勾選段落文字，會依 `xyxy` 再折一次，可能變成雙重換行。
 
 ---
 
