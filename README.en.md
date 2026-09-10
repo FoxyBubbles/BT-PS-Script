@@ -10,13 +10,55 @@ The original project is the Photoshop text-import script in the LabelPlus toolki
 
 ## How to use
 
-1. Select the BalloonsTranslator project JSON (for example `imgtrans_*.json`).
+1. Select the BalloonsTranslator project JSON (for example `imgtrans_*.json`, or `imgtrans_ps.json` exported below).
 
 ![Select the BT project JSON](doc/step1-select-bt-json.png)
 
 2. Confirm the image source / output paths, adjust options if needed, then click **Run**. The script will generate the corresponding PSD files.
 
 ![After making changes, click Run](doc/step2-run.png)
+
+---
+
+## Export a slim JSON from BalloonsTranslator
+
+**If you import as point text instead of paragraph text: point text will not wrap unless BalloonsTranslator already has manual line breaks (`\n`).** Soft wraps you see in BT are layout only and are not stored in the original project JSON. Run `scripts/export_ps_json.py` first so those visual wraps are written into `translation` as `\n`, then import the resulting `imgtrans_ps.json`.
+
+The script also drops fields this importer does not use, and it does not modify the original project file.
+
+**When to use it**
+
+- Importing as point text, and BT has no manual `\n` (only on-screen auto-wrap) — **you must use this script**, or the PSD text will be one unbroken run.
+- You only want the fields this importer reads (translation, boxes, fonts, etc.), not the full project JSON.
+- Batch-exporting several projects to `imgtrans_ps.json` for import.
+
+**Usage**
+
+The script uses BalloonsTranslator’s Qt text engine to recover wraps, so `ballontranslator` must be importable (run it in BT’s Python environment). Pass the BT root (the directory that contains the `ballontranslator` package):
+
+```bash
+python scripts/export_ps_json.py --bt-root /path/to/BallonsTranslator /path/to/project
+```
+
+You can also set `BALLONSTRANSLATOR_ROOT`. If you copy this file back into BT’s own `scripts/` folder, `--bt-root` can be omitted.
+
+Arguments:
+
+- Positional: project folder or an `imgtrans_*.json` path; you can pass more than one project.
+- `-o` / `--output`: output path. Default is `imgtrans_ps.json` in that project directory; the original project JSON is never overwritten. Do not reuse one `-o` for multiple projects.
+- `--ldpi`: logical DPI for layout, usually `96` or `72`. Try this if wraps do not match what you see in BT.
+
+Examples:
+
+```bash
+# Write imgtrans_ps.json in the project directory
+python scripts/export_ps_json.py --bt-root /path/to/BallonsTranslator /path/to/project
+
+# Explicit output file
+python scripts/export_ps_json.py --bt-root /path/to/BallonsTranslator /path/to/imgtrans_.json -o /tmp/imgtrans_ps.json
+```
+
+When importing `imgtrans_ps.json`, uncheck **paragraph text** so point text uses the `\n` written by the script. If paragraph text stays on, text will wrap again inside `xyxy` and you may get double line breaks.
 
 ---
 
